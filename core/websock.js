@@ -95,6 +95,13 @@ export default class Websock {
                this._rQ[this._rQi++];
     }
 
+    rQshift32L() {
+        return (this._rQ[this._rQi++]) +
+               (this._rQ[this._rQi++] << 8) +
+               (this._rQ[this._rQi++] << 16) +
+               (this._rQ[this._rQi++] << 24);
+    }
+
     rQshiftStr(len) {
         if (typeof(len) === 'undefined') { len = this.rQlen(); }
         let str = "";
