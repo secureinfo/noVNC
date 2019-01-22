@@ -8,7 +8,8 @@
 
 import * as Log from '../core/util/logging.js';
 import _, { l10n } from './localization.js';
-import { isTouchDevice, dragThreshold } from '../core/util/browser.js';
+import { isTouchDevice, isSafari, isIOS, isAndroid, dragThreshold }
+    from '../core/util/browser.js';
 import { setCapture, getPointerEvent } from '../core/util/events.js';
 import KeyTable from "../core/input/keysym.js";
 import keysyms from "../core/input/keysymdef.js";
@@ -31,7 +32,6 @@ const UI = {
     controlbarMouseDownClientY: 0,
     controlbarMouseDownOffsetY: 0,
 
-    isSafari: false,
     lastKeyboardinput: null,
     defaultKeyboardinputLen: 100,
 
@@ -55,10 +55,6 @@ const UI = {
 
     // Render default UI and initialize settings menu
     start(callback) {
-
-        // Setup global variables first
-        UI.isSafari = (navigator.userAgent.indexOf('Safari') !== -1 &&
-                       navigator.userAgent.indexOf('Chrome') === -1);
 
         UI.initSettings();
 
@@ -117,7 +113,7 @@ const UI = {
     initFullscreen() {
         // Only show the button if fullscreen is properly supported
         // * Safari doesn't support alphanumerical input while in fullscreen
-        if (!UI.isSafari &&
+        if (!isSafari() &&
             (document.documentElement.requestFullscreen ||
              document.documentElement.mozRequestFullScreen ||
              document.documentElement.webkitRequestFullscreen ||
@@ -280,6 +276,8 @@ const UI = {
             .addEventListener('click', UI.toggleExtraKeys);
         document.getElementById("noVNC_toggle_ctrl_button")
             .addEventListener('click', UI.toggleCtrl);
+        document.getElementById("noVNC_toggle_windows_button")
+            .addEventListener('click', UI.toggleWindows);
         document.getElementById("noVNC_toggle_alt_button")
             .addEventListener('click', UI.toggleAlt);
         document.getElementById("noVNC_send_tab_button")
@@ -1246,8 +1244,8 @@ const UI = {
             // Can't be clipping if viewport is scaled to fit
             UI.forceSetting('view_clip', false);
             UI.rfb.clipViewport  = false;
-        } else if (isTouchDevice) {
-            // Touch devices usually have shit scrollbars
+        } else if (isIOS() || isAndroid()) {
+            // iOS and Android usually have shit scrollbars
             UI.forceSetting('view_clip', true);
             UI.rfb.clipViewport = true;
         } else {
@@ -1526,6 +1524,17 @@ const UI = {
         }
     },
 
+    toggleWindows() {
+        const btn = document.getElementById('noVNC_toggle_windows_button');
+        if (btn.classList.contains("noVNC_selected")) {
+            UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", false);
+            btn.classList.remove("noVNC_selected");
+        } else {
+            UI.rfb.sendKey(KeyTable.XK_Super_L, "MetaLeft", true);
+            btn.classList.add("noVNC_selected");
+        }
+    },
+
     toggleAlt() {
         const btn = document.getElementById('noVNC_toggle_alt_button');
         if (btn.classList.contains("noVNC_selected")) {
@@ -1575,13 +1584,16 @@ const UI = {
                 .classList.add('noVNC_hidden');
             document.getElementById('noVNC_toggle_extra_keys_button')
                 .classList.add('noVNC_hidden');
+            document.getElementById('noVNC_mouse_button' + UI.rfb.touchButton)
+                .classList.add('noVNC_hidden');
         } else {
             document.getElementById('noVNC_keyboard_button')
                 .classList.remove('noVNC_hidden');
             document.getElementById('noVNC_toggle_extra_keys_button')
                 .classList.remove('noVNC_hidden');
+            document.getElementById('noVNC_mouse_button' + UI.rfb.touchButton)
+                .classList.remove('noVNC_hidden');
         }
-        UI.setMouseButton(1); //has it's own logic for hiding/showing
     },
 
     updateShowDotCursor() {
@@ -1632,7 +1644,7 @@ const UI = {
 };
 
 // Set up translations
-const LINGUAS = ["de", "el", "es", "nl", "pl", "sv", "tr", "zh_CN", "zh_TW"];
+const LINGUAS = ["cs", "de", "el", "es", "ko", "nl", "pl", "sv", "tr", "zh_CN", "zh_TW"];
 l10n.setup(LINGUAS);
 if (l10n.language !== "en" && l10n.dictionary === undefined) {
     WebUtil.fetchJSON('app/locale/' + l10n.language + '.json', (translations) => {

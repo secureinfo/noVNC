@@ -31,14 +31,15 @@ import TightPNGDecoder from "./decoders/tightpng.js";
 
 // How many seconds to wait for a disconnect to finish
 const DISCONNECT_TIMEOUT = 3;
+const DEFAULT_BACKGROUND = 'rgb(40, 40, 40)';
 
 export default class RFB extends EventTargetMixin {
     constructor(target, url, options) {
         if (!target) {
-            throw Error("Must specify target");
+            throw new Error("Must specify target");
         }
         if (!url) {
-            throw Error("Must specify URL");
+            throw new Error("Must specify URL");
         }
 
         super();
@@ -128,7 +129,7 @@ export default class RFB extends EventTargetMixin {
         this._screen.style.width = '100%';
         this._screen.style.height = '100%';
         this._screen.style.overflow = 'auto';
-        this._screen.style.backgroundColor = 'rgb(40, 40, 40)';
+        this._screen.style.background = DEFAULT_BACKGROUND;
         this._canvas = document.createElement('canvas');
         this._canvas.style.margin = 'auto';
         // Some browsers add an outline on focus
@@ -301,6 +302,9 @@ export default class RFB extends EventTargetMixin {
         this._showDotCursor = show;
         this._refreshCursor();
     }
+
+    get background() { return this._screen.style.background; }
+    set background(cssValue) { this._screen.style.background = cssValue; }
 
     // ===== PUBLIC METHODS =====
 
@@ -681,7 +685,7 @@ export default class RFB extends EventTargetMixin {
     }
 
     _handle_message() {
-        if (this._sock.rQlen() === 0) {
+        if (this._sock.rQlen === 0) {
             Log.Warn("handle_message called on an empty receive queue");
             return;
         }
@@ -698,7 +702,7 @@ export default class RFB extends EventTargetMixin {
                     if (!this._normal_msg()) {
                         break;
                     }
-                    if (this._sock.rQlen() === 0) {
+                    if (this._sock.rQlen === 0) {
                         break;
                     }
                 }
@@ -779,7 +783,7 @@ export default class RFB extends EventTargetMixin {
     // Message Handlers
 
     _negotiate_protocol_version() {
-        if (this._sock.rQlen() < 12) {
+        if (this._sock.rQlen < 12) {
             return this._fail("Received incomplete protocol version.");
         }
 
@@ -1386,7 +1390,7 @@ export default class RFB extends EventTargetMixin {
 
     _handle_xvp_msg() {
         if (this._sock.rQwait("XVP version and message", 3, 1)) { return false; }
-        this._sock.rQskip8();  // Padding
+        this._sock.rQskipBytes(1);  // Padding
         const xvp_ver = this._sock.rQshift8();
         const xvp_msg = this._sock.rQshift8();
 
@@ -1468,7 +1472,7 @@ export default class RFB extends EventTargetMixin {
     _onFlush() {
         this._flushing = false;
         // Resume processing
-        if (this._sock.rQlen() > 0) {
+        if (this._sock.rQlen > 0) {
             this._handle_message();
         }
     }
@@ -1476,7 +1480,7 @@ export default class RFB extends EventTargetMixin {
     _framebufferUpdate() {
         if (this._FBU.rects === 0) {
             if (this._sock.rQwait("FBU header", 3, 1)) { return false; }
-            this._sock.rQskip8();  // Padding
+            this._sock.rQskipBytes(1);  // Padding
             this._FBU.rects = this._sock.rQshift16();
 
             // Make sure the previous frame is fully rendered first
